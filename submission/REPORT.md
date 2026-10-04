@@ -5,8 +5,8 @@ Phần phân tích tối đa một trang, không tính output ở phần 5.
 
 **Họ tên / MSSV:** Nguyễn Ngọc Minh / 2A202602653
 **Repo:** https://github.com/NgNMinh/K4-Track02-Day17-NguyenNgocMinh-2A202602653-DataPipelineEngineering
-**Commit bài nộp:** 025389b
-**AI đã dùng và phạm vi hỗ trợ (hoặc không dùng):** Kiro (Claude) — hỗ trợ debug 3 lỗi pipeline (silver upsert, CDC delete, late data lookback), giải thích nguyên nhân, và điền REPORT.md
+**Commit bài nộp:** b6cb79c
+**AI đã dùng và phạm vi hỗ trợ (hoặc không dùng):**
 **Nguồn tham khảo khác (nếu có):**
 
 ## 1. Ba lỗi
