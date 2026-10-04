@@ -5,8 +5,8 @@ Phần phân tích tối đa một trang, không tính output ở phần 5.
 
 **Họ tên / MSSV:** Nguyễn Ngọc Minh / 2A202602653
 **Repo:** https://github.com/NgNMinh/K4-Track02-Day17-NguyenNgocMinh-2A202602653-DataPipelineEngineering
-**Commit bài nộp:** b6cb79c
-**AI đã dùng và phạm vi hỗ trợ (hoặc không dùng):**
+**Commit bài nộp:** 4c7c47fbdc3dda31e62c95ad7303f37aca940fcd
+**AI đã dùng và phạm vi hỗ trợ (hoặc không dùng):** Kiro hỗ trợ debug và điền report.md
 **Nguồn tham khảo khác (nếu có):**
 
 ## 1. Ba lỗi
