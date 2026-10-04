@@ -62,9 +62,18 @@ def ensure_tables(con: duckdb.DuckDBPyConnection) -> None:
 # ── tickets ─────────────────────────────────────────────────────────────────
 
 def upsert_silver_tickets(con: duckdb.DuckDBPyConnection, day: str) -> dict:
-    """Apply one day's CDC batch to silver_tickets."""
-    # Within one batch a ticket can change several times (and Kafka may deliver
-    # the same change twice): keep only its latest change, by LSN.
+    """Apply one day's CDC batch to silver_tickets (idempotent upsert).
+
+    Two levels of dedup:
+    1. Within one batch: a ticket can change multiple times (and Kafka may redeliver
+       the same change) — keep only the highest-LSN change per ticket_id.
+    2. Across batches: MERGE on ticket_id, only update when the incoming LSN is
+       strictly higher than what is already in Silver.  This guarantees that
+       re-running an old batch (e.g. day 12 after day 16) never overwrites a
+       newer state — LSN is the monotonically-increasing Postgres WAL counter
+       that acts as the authoritative ordering signal.
+    """
+    # Step 1 — within-batch dedup: one row per ticket, the last change by LSN.
     con.execute(f"""
         CREATE OR REPLACE TEMP TABLE _latest_changes AS
         SELECT ticket_id, user_id,
@@ -76,13 +85,31 @@ def upsert_silver_tickets(con: duckdb.DuckDBPyConnection, day: str) -> dict:
     """)
     (n_changes,) = con.execute("SELECT count(*) FROM _latest_changes").fetchone()
 
-    # Write this batch's changes to Silver.
-    # A delete arrives as a change with is_deleted = true and every PII column null.
+    # Step 2 — cross-batch upsert: one row per ticket_id in silver_tickets.
+    # Only advance if the incoming change is newer (higher LSN) than what we
+    # already have.  Re-running an old day is therefore a no-op for any ticket
+    # that was already updated by a later batch.
     con.execute("""
-        INSERT INTO silver_tickets
-        SELECT ticket_id, user_id, subject, body, priority, status, category,
-               created_at, updated_at, is_deleted, _lsn, _batch_id
-        FROM _latest_changes
+        MERGE INTO silver_tickets AS t
+        USING _latest_changes AS s
+        ON t.ticket_id = s.ticket_id
+        WHEN MATCHED AND s._lsn > t._lsn THEN UPDATE SET
+            user_id    = s.user_id,
+            subject    = s.subject,
+            body       = s.body,
+            priority   = s.priority,
+            status     = s.status,
+            category   = s.category,
+            created_at = s.created_at,
+            updated_at = s.updated_at,
+            is_deleted = s.is_deleted,
+            _lsn       = s._lsn,
+            _batch_id  = s._batch_id
+        WHEN NOT MATCHED THEN INSERT VALUES (
+            s.ticket_id, s.user_id, s.subject, s.body,
+            s.priority, s.status, s.category,
+            s.created_at, s.updated_at, s.is_deleted,
+            s._lsn, s._batch_id)
     """)
     (n_rows,) = con.execute("SELECT count(*) FROM silver_tickets").fetchone()
     return {"changes_in_batch": n_changes, "silver_rows": n_rows}
